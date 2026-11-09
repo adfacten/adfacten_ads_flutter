@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "adfacten-ios-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/adfacten/adfacten-ios-sdk.git",
+      "state" : {
+        "revision" : "94548d7d713d85d55e50206136712976d5ee344e",
+        "version" : "1.0.0"
+      }
+    }
+  ],
+  "version" : 2
+}

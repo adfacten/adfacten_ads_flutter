@@ -1,0 +1,34 @@
+name: adfacten_ads
+description: >-
+  Adfacten Ads for Flutter: banner, interstitial, rewarded, native and
+  app-open ads, backed by the native Adfacten SDKs for Android and iOS.
+version: 1.0.0
+homepage: https://developers.adfacten.com/mobile-sdk-en
+repository: https://github.com/adfacten/adfacten_ads_flutter
+issue_tracker: https://github.com/adfacten/adfacten_ads_flutter/issues
+topics:
+  - ads
+  - advertising
+  - monetization
+
+environment:
+  sdk: ^3.8.0
+  flutter: '>=3.32.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.adfacten.ads.flutter
+        pluginClass: AdfactenAdsPlugin
+      ios:
+        pluginClass: AdfactenAdsPlugin
