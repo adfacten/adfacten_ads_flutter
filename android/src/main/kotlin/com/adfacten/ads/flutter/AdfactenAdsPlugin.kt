@@ -97,12 +97,12 @@ class AdfactenAdsPlugin : FlutterPlugin, ActivityAware, MethodChannel.MethodCall
                 else -> result.notImplemented()
             }
         } catch (e: Exception) {
-            result.error("internal", e.message ?: e.toString(), null)
+            result.error("internal_error", e.message ?: e.toString(), null)
         }
     }
 
     private fun initialize(call: MethodCall, result: MethodChannel.Result) {
-        val context = appContext ?: return result.error("internal", "plugin is detached", null)
+        val context = appContext ?: return result.error("internal_error", "plugin is detached", null)
         val appKey = call.argument<String>("appKey").orEmpty()
         val config = AdfactenConfig(
             testMode = call.argument<Boolean>("testMode") ?: false,
@@ -116,12 +116,13 @@ class AdfactenAdsPlugin : FlutterPlugin, ActivityAware, MethodChannel.MethodCall
             childDirected = call.argument<Boolean>("childDirected") ?: false,
             userId = call.argument<String>("userId"),
         )
+        Adfacten.setWrapper("flutter", call.argument<String>("pluginVersion") ?: "unknown")
         Adfacten.initialize(context, appKey, config)
         result.success(null)
     }
 
     private fun loadAd(call: MethodCall, result: MethodChannel.Result) {
-        val context = appContext ?: return result.error("internal", "plugin is detached", null)
+        val context = appContext ?: return result.error("internal_error", "plugin is detached", null)
         val id = call.adId()
         val placementId = call.argument<String>("placementId").orEmpty()
         val gen = generation
@@ -140,7 +141,7 @@ class AdfactenAdsPlugin : FlutterPlugin, ActivityAware, MethodChannel.MethodCall
 
             override fun onFailed(error: AdError) {
                 pendingLoads.remove(id)
-                result.error(error.wireCode(), error.message, error.details())
+                result.error(error.name, error.message, error.details())
             }
         }
 
@@ -162,7 +163,7 @@ class AdfactenAdsPlugin : FlutterPlugin, ActivityAware, MethodChannel.MethodCall
             })
             else -> {
                 pendingLoads.remove(id)
-                result.error("invalidRequest", "unknown format ${call.argument<String>("format")}", null)
+                result.error("invalid_request", "unknown format ${call.argument<String>("format")}", null)
             }
         }
     }
@@ -173,7 +174,7 @@ class AdfactenAdsPlugin : FlutterPlugin, ActivityAware, MethodChannel.MethodCall
             ?: return result.error("disposed", "the ad was disposed or not loaded", null)
         val act = activity
         if (act == null || act.isFinishing) {
-            return result.error("showFailed", "no foreground activity", null)
+            return result.error("show_failed", "no foreground activity", null)
         }
         val gen = generation
         ad.listener = object : FullScreenAdListener {
@@ -264,24 +265,8 @@ private fun NativeAd.assets(): Map<String, Any?> = mapOf(
     "hasIcon" to (icon != null),
 )
 
-/** Maps the Android SDK codes to the platform-neutral codes of the Dart API. */
-internal fun AdError.wireCode(): String = when (code) {
-    AdError.NOT_INITIALIZED -> "notInitialized"
-    AdError.INVALID_REQUEST -> "invalidRequest"
-    AdError.NETWORK_ERROR -> "network"
-    AdError.NO_FILL -> "noFill"
-    AdError.SERVER_ERROR -> "serverError"
-    AdError.INVALID_RESPONSE -> "invalidResponse"
-    AdError.REJECTED -> if (serverCode == "coppa") "childDirected" else "rejected"
-    AdError.AD_EXPIRED -> "expired"
-    AdError.ALREADY_SHOWN -> "alreadyShown"
-    AdError.VIDEO_NOT_SUPPORTED -> "videoNotSupported"
-    AdError.SHOW_FAILED -> "showFailed"
-    AdError.LOAD_IN_PROGRESS -> "loadInProgress"
-    else -> "internal"
-}
-
 internal fun AdError.details(): Map<String, Any?> = mapOf("serverCode" to serverCode, "nativeCode" to code)
 
+/** Error payload for Dart. `code` is the SDK's stable error name (`no_fill`, `rejected`, ...). */
 internal fun AdError.toMap(): Map<String, Any?> =
-    mapOf("code" to wireCode(), "message" to message, "serverCode" to serverCode, "nativeCode" to code)
+    mapOf("code" to name, "message" to message, "serverCode" to serverCode, "nativeCode" to code)

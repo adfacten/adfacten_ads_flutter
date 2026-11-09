@@ -35,14 +35,16 @@ enum AdSize {
 /// AdfactenBanner(
 ///   placementId: 'plc_...',
 ///   size: AdSize.banner,
-///   onFailedToLoad: (error) => setState(() => showBanner = false),
+///   onFailedToLoad: (error) => debugPrint('banner: ${error.name}'),
 /// )
 /// ```
 ///
 /// The widget always takes the size of [size]. It loads when it is first
 /// built and refreshes itself on the placement's interval (30 to 120 s of
-/// visible time). The impression is counted only once the banner is actually
-/// on screen. Removing the widget releases the native banner.
+/// visible time). After a failed load it tries again on the same timer while
+/// it is on screen; a rejected request (app or placement not approved, COPPA)
+/// stops it. The impression is counted only once the banner is actually on
+/// screen. Removing the widget releases the native banner.
 class AdfactenBanner extends StatefulWidget {
   const AdfactenBanner({
     super.key,
@@ -60,7 +62,9 @@ class AdfactenBanner extends StatefulWidget {
   /// A creative was loaded (also after each refresh).
   final VoidCallback? onLoaded;
 
-  /// The load failed. After a failed refresh the previous creative stays.
+  /// The load failed. After a failed refresh the previous creative stays. An
+  /// empty banner retries by itself, so keep the widget in the tree if you
+  /// want the slot to fill later.
   final void Function(AdError error)? onFailedToLoad;
 
   /// The creative is on screen (the impression was recorded).

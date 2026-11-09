@@ -21,6 +21,7 @@ void main() {
       throwsA(
         isA<AdError>()
             .having((e) => e.code, 'code', AdErrorCode.rejected)
+            .having((e) => e.name, 'name', 'rejected')
             .having((e) => e.serverCode, 'serverCode', 'placement_mismatch'),
       ),
     );
@@ -40,5 +41,6 @@ void main() {
     await ad.show();
     final error = await pumpUntil(tester, second.future);
     expect(error.code, isNot(AdErrorCode.internal));
+    expect(error.name, anyOf('already_shown', 'not_ready'));
   });
 }

@@ -41,6 +41,9 @@ class AdfactenConfig {
 
 /// Entry point of the Adfacten Ads SDK.
 abstract final class Adfacten {
+  /// Version of this plugin. The native SDKs report it with each ad request.
+  static const String pluginVersion = '1.0.1';
+
   /// Initializes the native SDK. Call once, early (for example in `main`
   /// after `WidgetsFlutterBinding.ensureInitialized()`). Calling it again
   /// replaces the config.
@@ -54,6 +57,7 @@ abstract final class Adfacten {
     return AdfactenPlatform.instance.invoke<void>('initialize', {
       'appKey': appKey.trim(),
       ...config.toMap(),
+      'pluginVersion': pluginVersion,
     });
   }
 
@@ -70,7 +74,7 @@ abstract final class Adfacten {
         false;
   }
 
-  /// Version of the native SDK, e.g. `1.0.0`.
+  /// Version of the native SDK, e.g. `1.0.2`.
   static Future<String> nativeSdkVersion() async {
     return await AdfactenPlatform.instance.invoke<String>('sdkVersion') ?? '';
   }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:adfacten_ads/adfacten_ads.dart';
 import 'package:adfacten_ads/src/platform.dart';
 import 'package:flutter/material.dart';
@@ -69,6 +71,15 @@ void main() {
   });
 
   group('Adfacten', () {
+    test('pluginVersion matches pubspec.yaml', () {
+      final pubspec = File('pubspec.yaml').readAsStringSync();
+      final version = RegExp(
+        r'^version:\s*(\S+)',
+        multiLine: true,
+      ).firstMatch(pubspec)?.group(1);
+      expect(Adfacten.pluginVersion, version);
+    });
+
     test(
       'initialize sends the key and config after resetting stale ads',
       () async {
@@ -90,6 +101,7 @@ void main() {
           'logLevel': 'debug',
           'childDirected': true,
           'userId': 'u1',
+          'pluginVersion': Adfacten.pluginVersion,
         });
       },
     );
@@ -118,12 +130,62 @@ void main() {
       expect(e.message, 'nope');
       expect(e.serverCode, 'placement_mismatch');
       expect(e.nativeCode, 7);
+      expect(e.name, 'rejected');
       expect(e.toString(), contains('placement_mismatch'));
     });
 
     test('unknown codes become internal', () {
       expect(AdErrorCode.fromWire('somethingNew'), AdErrorCode.internal);
       expect(AdError.fromMap(null).code, AdErrorCode.internal);
+      expect(AdError.fromMap(null).name, 'internal_error');
+      final e = AdError.fromMap({'code': 'something_new', 'message': 'x'});
+      expect(e.code, AdErrorCode.internal);
+      expect(e.name, 'something_new');
+    });
+
+    test('every native error name maps to a code', () {
+      const expected = {
+        'internal_error': AdErrorCode.internal,
+        'not_initialized': AdErrorCode.notInitialized,
+        'invalid_request': AdErrorCode.invalidRequest,
+        'network_error': AdErrorCode.network,
+        'no_fill': AdErrorCode.noFill,
+        'server_error': AdErrorCode.serverError,
+        'invalid_response': AdErrorCode.invalidResponse,
+        'rejected': AdErrorCode.rejected,
+        'ad_expired': AdErrorCode.expired,
+        'already_shown': AdErrorCode.alreadyShown,
+        'not_ready': AdErrorCode.alreadyShown,
+        'show_failed': AdErrorCode.showFailed,
+        'video_not_supported': AdErrorCode.videoNotSupported,
+        'load_in_progress': AdErrorCode.loadInProgress,
+        'child_directed': AdErrorCode.childDirected,
+        'creative_failed': AdErrorCode.creativeFailed,
+      };
+      expected.forEach((name, code) {
+        final e = AdError.fromMap({'code': name, 'message': 'm'});
+        expect(e.code, code, reason: name);
+        expect(e.name, name);
+      });
+    });
+
+    test('a COPPA rejection keeps its name and reads as childDirected', () {
+      final e = AdError.fromPlatformException(
+        platformError('rejected', 'coppa', 'coppa', 7),
+      );
+      expect(e.code, AdErrorCode.childDirected);
+      expect(e.name, 'rejected');
+    });
+
+    test('older camelCase codes are still understood', () {
+      expect(AdErrorCode.fromWire('noFill'), AdErrorCode.noFill);
+      expect(AdErrorCode.fromWire('showFailed'), AdErrorCode.showFailed);
+    });
+
+    test('plugin errors use the name of their code', () {
+      const e = AdError(AdErrorCode.disposed, 'gone');
+      expect(e.name, 'disposed');
+      expect(e.toString(), 'AdError(disposed: gone)');
     });
   });
 
@@ -140,7 +202,7 @@ void main() {
 
     test('load failure throws AdError with the server code', () async {
       native.answers['loadAd'] = (_) =>
-          throw platformError('noFill', 'no ad', null, 4);
+          throw platformError('no_fill', 'no ad', null, 4);
       await expectLater(
         InterstitialAd.load('plc_i'),
         throwsA(
@@ -205,7 +267,7 @@ void main() {
     test('native show errors go to onFailedToShow', () async {
       final ad = await InterstitialAd.load('plc_i');
       native.answers['showAd'] = (_) =>
-          throw platformError('showFailed', 'no activity');
+          throw platformError('show_failed', 'no activity');
       AdError? error;
       ad.listener = FullScreenAdListener(onFailedToShow: (e) => error = e);
       await ad.show();
@@ -221,7 +283,7 @@ void main() {
       await ad.show();
       await native.emit(id, 'failedToShow', {
         'error': {
-          'code': 'expired',
+          'code': 'ad_expired',
           'message': 'the ad expired',
           'serverCode': null,
           'nativeCode': 8,
@@ -451,7 +513,7 @@ void main() {
       await native.emit(id, 'shown');
       await native.emit(id, 'clicked');
       await native.emit(id, 'failedToLoad', {
-        'error': {'code': 'noFill', 'message': 'no ad'},
+        'error': {'code': 'no_fill', 'message': 'no ad'},
       });
       expect(events, ['loaded', 'shown', 'clicked']);
       expect(failure?.code, AdErrorCode.noFill);

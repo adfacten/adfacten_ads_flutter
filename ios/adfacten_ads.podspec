@@ -6,8 +6,8 @@
 require 'digest'
 require 'fileutils'
 
-adfacten_sdk_version = '1.0.0'
-adfacten_sdk_sha256 = '6ab9883dc8d92597f2f0c7391c4b2434c15950548e7e465e16367539290b883f'
+adfacten_sdk_version = '1.0.2'
+adfacten_sdk_sha256 = 'a7ce159e07b4146aa2925d9c7be76dfcda2dc4a80bd9ec4ffcef24531bc9ce7d'
 adfacten_sdk_url = "https://cdn.adfacten.com/ios/AdfactenAds-#{adfacten_sdk_version}.xcframework.zip"
 
 frameworks_dir = File.join(File.dirname(File.expand_path(__FILE__)), 'Frameworks')
@@ -34,7 +34,7 @@ end
 
 Pod::Spec.new do |s|
   s.name             = 'adfacten_ads'
-  s.version          = '1.0.0'
+  s.version          = '1.0.1'
   s.summary          = 'Adfacten Ads for Flutter: banner, interstitial, rewarded, native and app-open ads.'
   s.homepage         = 'https://developers.adfacten.com/mobile-sdk-en'
   s.license          = { :type => 'Apache-2.0', :file => '../LICENSE' }

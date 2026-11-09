@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/adfacten/adfacten-ios-sdk.git",
       "state" : {
-        "revision" : "94548d7d713d85d55e50206136712976d5ee344e",
-        "version" : "1.0.0"
+        "revision" : "5302386e5d7b3b62fe70076e9746b36d105dd07e",
+        "version" : "1.0.2"
       }
     }
   ],

@@ -58,7 +58,6 @@ class BannerPage extends StatefulWidget {
 class _BannerPageState extends State<BannerPage> {
   final EventLog _log = EventLog();
   AdSize _size = AdSize.banner;
-  bool _failed = false;
 
   @override
   void dispose() {
@@ -86,34 +85,21 @@ class _BannerPageState extends State<BannerPage> {
             ],
             selected: {_size},
             showSelectedIcon: false,
-            onSelectionChanged: (s) => setState(() {
-              _size = s.first;
-              _failed = false;
-            }),
+            onSelectionChanged: (s) => setState(() => _size = s.first),
           ),
           const SizedBox(height: 24),
           if (!fits)
             const Text('728x90 is for tablets; this screen is too narrow.')
-          else if (!_failed)
+          else
             Center(
               child: AdfactenBanner(
                 placementId: widget.placementId,
                 size: _size,
                 onLoaded: () => _log.add('${_size.wire}: loaded'),
-                onFailedToLoad: (e) {
-                  _log.add('${_size.wire}: failed: $e');
-                  // Collapse the slot instead of leaving an empty box.
-                  setState(() => _failed = true);
-                },
+                // The banner retries by itself while it is on screen.
+                onFailedToLoad: (e) => _log.add('${_size.wire}: failed: $e'),
                 onShown: () => _log.add('${_size.wire}: shown (impression)'),
                 onClicked: () => _log.add('${_size.wire}: clicked'),
-              ),
-            )
-          else
-            Center(
-              child: TextButton(
-                onPressed: () => setState(() => _failed = false),
-                child: const Text('Retry'),
               ),
             ),
           const SizedBox(height: 24),

@@ -1,8 +1,8 @@
 group = "com.adfacten.ads.flutter"
-version = "1.0.0"
+version = "1.0.1"
 
 // Native Adfacten SDK version this plugin is built against.
-val adfactenSdkVersion = "1.0.1"
+val adfactenSdkVersion = "1.0.2"
 
 buildscript {
     val kotlinVersion = "2.4.0"

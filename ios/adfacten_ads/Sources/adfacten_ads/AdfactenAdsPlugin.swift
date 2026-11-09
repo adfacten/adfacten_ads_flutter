@@ -15,6 +15,7 @@ public final class AdfactenAdsPlugin: NSObject, FlutterPlugin {
     /// disposed them. Keyed by object, since ids restart after a hot restart.
     private var presenting: [ObjectIdentifier: (ad: FullScreenAd, handler: FullScreenHandler)] = [:]
     private var pendingLoads = Set<Int>()
+    /// The view each native ad is shown in, so disposing the ad can unbind it.
     private var nativeViews: [Int: WeakNativeView] = [:]
     /// Bumped on `reset` (Dart hot restart) so callbacks of older ads are dropped.
     private(set) var generation = 0
@@ -89,6 +90,7 @@ public final class AdfactenAdsPlugin: NSObject, FlutterPlugin {
         case "debug": config.logLevel = .debug
         default: config.logLevel = .warning
         }
+        Adfacten.setWrapper(name: "flutter", version: args["pluginVersion"] as? String ?? "unknown")
         Adfacten.initialize(appKey: args["appKey"] as? String ?? "", config: config)
     }
 
@@ -144,7 +146,7 @@ public final class AdfactenAdsPlugin: NSObject, FlutterPlugin {
             }
         default:
             pendingLoads.remove(id)
-            result(FlutterError(code: "invalidRequest", message: "unknown format", details: nil))
+            result(FlutterError(code: "invalid_request", message: "unknown format", details: nil))
         }
     }
 
@@ -156,7 +158,7 @@ public final class AdfactenAdsPlugin: NSObject, FlutterPlugin {
             return result(FlutterError(code: "disposed", message: "the ad was disposed or not loaded", details: nil))
         }
         guard let vc = Self.rootViewController() else {
-            return result(FlutterError(code: "showFailed", message: "no view controller in a window", details: nil))
+            return result(FlutterError(code: "show_failed", message: "no view controller in a window", details: nil))
         }
         let handler = FullScreenHandler(id: id, generation: generation, plugin: self)
         ad.delegate = handler
@@ -212,10 +214,10 @@ public final class AdfactenAdsPlugin: NSObject, FlutterPlugin {
 
     func nativeAd(_ id: Int) -> NativeAd? { ads[id] as? NativeAd }
 
-    /// An ad is bound to one view at a time: binding it elsewhere unbinds the previous view.
+    /// Binds the ad to `view`. The SDK detaches it from any previous view and counts the impression
+    /// once per ad.
     func bind(_ id: Int, to view: NativeAdView) {
         guard let ad = nativeAd(id) else { return }
-        if let old = nativeViews[id]?.view, old !== view { old.nativeAd = nil }
         nativeViews[id] = WeakNativeView(view: view)
         view.nativeAd = ad
     }
@@ -303,39 +305,23 @@ private func nativeAssets(_ ad: NativeAd) -> [String: Any] {
     ]
 }
 
-/// Maps the iOS SDK codes to the platform-neutral codes of the Dart API.
-private func wireCode(_ code: AdfactenErrorCode) -> String {
-    switch code {
-    case .notInitialized: return "notInitialized"
-    case .noFill: return "noFill"
-    case .network: return "network"
-    case .serverRejected: return "rejected"
-    case .invalidResponse: return "invalidResponse"
-    case .expired: return "expired"
-    case .notReady: return "alreadyShown"
-    case .presentationFailed: return "showFailed"
-    case .creativeFailed: return "creativeFailed"
-    case .childDirected: return "childDirected"
-    @unknown default: return "internal"
-    }
-}
-
+/// Error payload for Dart. `code` is the SDK's stable error name (`no_fill`, `rejected`, ...).
 func errorMap(_ error: Error?) -> [String: Any] {
     guard let error else {
-        return ["code": "internal", "message": "unknown error", "serverCode": NSNull(), "nativeCode": NSNull()]
+        return ["code": "internal_error", "message": "unknown error", "serverCode": NSNull(), "nativeCode": NSNull()]
     }
     if let e = error as? AdfactenError {
         return [
-            "code": wireCode(e.code),
+            "code": e.name,
             "message": e.message,
             "serverCode": e.serverCode ?? NSNull(),
             "nativeCode": e.code.rawValue,
         ]
     }
     let ns = error as NSError
-    let code = ns.domain == AdfactenErrorDomain ? AdfactenErrorCode(rawValue: ns.code).map(wireCode) ?? "internal" : "internal"
+    let name = ns.domain == AdfactenErrorDomain ? ns.userInfo[AdfactenErrorNameKey] as? String : nil
     return [
-        "code": code,
+        "code": name ?? "internal_error",
         "message": ns.localizedDescription,
         "serverCode": ns.userInfo["serverCode"] as? String ?? NSNull(),
         "nativeCode": ns.code,
@@ -345,7 +331,7 @@ func errorMap(_ error: Error?) -> [String: Any] {
 private func flutterError(_ error: Error?) -> FlutterError {
     let map = errorMap(error)
     return FlutterError(
-        code: map["code"] as? String ?? "internal",
+        code: map["code"] as? String ?? "internal_error",
         message: map["message"] as? String,
         details: ["serverCode": map["serverCode"] ?? NSNull(), "nativeCode": map["nativeCode"] ?? NSNull()]
     )

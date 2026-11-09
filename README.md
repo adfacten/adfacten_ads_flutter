@@ -8,6 +8,7 @@ happen natively, so impressions are counted the same way as in native apps.
 
 - Android: minSdk 24. iOS: 15.0 or later.
 - Flutter 3.32 or later.
+- Built on the native Adfacten SDK 1.0.2 (Android `com.adfacten:ads:1.0.2`, iOS `AdfactenAds` 1.0.2).
 - Full documentation: [developers.adfacten.com/mobile-sdk-en](https://developers.adfacten.com/mobile-sdk-en)
 
 ## Install
@@ -19,7 +20,7 @@ dependencies:
   adfacten_ads:
     git:
       url: https://github.com/adfacten/adfacten_ads_flutter
-      ref: 1.0.0
+      ref: 1.0.1
 ```
 
 ### Android
@@ -94,19 +95,24 @@ AdfactenBanner(
   placementId: 'plc_your_banner',
   size: AdSize.banner,
   onLoaded: () {},
-  onFailedToLoad: (error) => setState(() => _showBanner = false),
+  onFailedToLoad: (error) => debugPrint('banner: ${error.name}'),
   onShown: () {},   // the impression
   onClicked: () {},
 )
 ```
 
 Sizes: `AdSize.banner` (320x50), `largeBanner` (320x100), `mediumRectangle` (300x250), `leaderboard` (728x90,
-tablets). The widget always has exactly that size; collapse the slot yourself when the load fails.
+tablets). The widget always has exactly that size.
 
 The banner loads when it is first built and refreshes on the placement's interval (30 to 120 seconds), counting
-only time while it is on screen and the app is in the foreground. The impression is recorded only once the
-creative is actually visible, so a banner in a list that is never scrolled to costs nothing. Removing the widget
-releases the native banner. Changing `placementId` or `size` creates a new banner.
+only time while it is on screen and the app is in the foreground. If a load fails (no fill, network or server
+error), it tries again on the same timer while it is on screen, never sooner than the SDK's back-off for that
+placement. A rejected request (app or placement not approved, COPPA) stops it. So keep the widget in the tree if
+you want an empty slot to fill later; removing it on `onFailedToLoad` stops the retries.
+
+The impression is recorded only once the creative is actually visible, so a banner in a list that is never
+scrolled to costs nothing. Removing the widget releases the native banner. Changing `placementId` or `size`
+creates a new banner.
 
 ## Interstitial
 
@@ -220,7 +226,8 @@ are there to help you choose a template or decide whether to show the slot; an a
 is not tracked and earns nothing.
 
 One ad is shown in one view at a time. Disposing the widget does not dispose the ad, so you can keep the ad
-while a list item scrolls away and back; dispose it when the screen goes away.
+while a list item scrolls away and back; dispose it when the screen goes away. Showing the same ad again, or in
+another view, never counts a second impression.
 
 ## App open
 
@@ -265,20 +272,26 @@ background. The example app (`example/lib/app_open.dart`) shows one way to do th
 
 ## Errors
 
-Loads throw, and `onFailedToLoad` / `onFailedToShow` receive, an `AdError`:
+Loads throw, and `onFailedToLoad` / `onFailedToShow` receive, an `AdError`. `AdError.name` is the stable error
+name reported by the native SDK, the same on Android and iOS; `AdError.code` is the matching Dart enum.
 
-| `AdError.code` | Meaning |
-|---|---|
-| `noFill` | No ad right now. The SDK then waits at least 30 seconds before asking again for that placement. |
-| `network` | Network error or timeout. |
-| `rejected` | The server refused the request. See `serverCode`: `unknown_app`, `app_not_approved`, `bundle_mismatch`, `platform_mismatch`, `placement_mismatch`, `invalid_request`. |
-| `childDirected` | The app or request is child-directed (`coppa`). |
-| `notInitialized` | `Adfacten.initialize` was not called, or the app key is malformed. |
-| `expired`, `alreadyShown` | Load a new ad. |
-| `showFailed` | No foreground activity / view controller, or another Adfacten ad is on screen. The ad can be shown later. |
-| `creativeFailed`, `videoNotSupported`, `invalidResponse`, `serverError`, `invalidRequest`, `loadInProgress`, `disposed`, `internal` | Less common; see the message. |
+| `AdError.name` | `AdError.code` | Meaning |
+|---|---|---|
+| `no_fill` | `noFill` | No ad right now. The SDK then waits at least 30 seconds before asking again for that placement. |
+| `network_error` | `network` | Network error or timeout. |
+| `server_error` | `serverError` | The ad server had an error (5xx). |
+| `rejected` | `rejected` | The server refused the request. See `serverCode`: `unknown_app`, `app_not_approved`, `bundle_mismatch`, `platform_mismatch`, `placement_mismatch`, `test_only`. With `serverCode` `coppa` the code is `childDirected`. |
+| `child_directed` | `childDirected` | The app or request is child-directed (iOS). |
+| `not_initialized` | `notInitialized` | `Adfacten.initialize` was not called, or the app key is malformed. |
+| `invalid_request` | `invalidRequest` | For example an empty placement id. |
+| `ad_expired` | `expired` | The ad is older than about 55 minutes. Load a new one. |
+| `already_shown`, `not_ready` | `alreadyShown` | The ad was already shown or is not loaded. Load a new one. |
+| `show_failed` | `showFailed` | No foreground activity / view controller, or another Adfacten ad is on screen. The ad can be shown later. |
+| `creative_failed`, `video_not_supported`, `invalid_response`, `load_in_progress`, `internal_error` | | Less common; see the message. |
+| `disposed` | `disposed` | The ad was disposed before the call finished (plugin only). |
 
-`serverCode` is the ad server's machine code and `nativeCode` the native SDK's own numeric code.
+`serverCode` is the ad server's machine code and `nativeCode` the native SDK's own numeric code, which differs
+between platforms. Prefer `name` or `code`.
 
 ## Test mode
 
